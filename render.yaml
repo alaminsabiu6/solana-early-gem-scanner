@@ -9,7 +9,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.2
       - key: POLL_SECONDS
-        value: 60
+        value: 90
       - key: MAX_PROFILES_PER_SCAN
         value: 10
       - key: MIN_LIQUIDITY_USD
@@ -18,3 +18,13 @@ services:
         value: 60
       - key: MIN_TXNS_5M
         value: 10
+      - key: SECURITY_CHECK_LIMIT
+        value: 5
+      - key: ALERT_MIN_SCORE
+        value: 70
+      # Optional: set these in Render Dashboard > Environment.
+      # Do not commit real bot tokens to GitHub.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
