@@ -40,7 +40,7 @@ _state = {
 HTML = r"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="60">
+<meta http-equiv="refresh" content="45">
 <title>Solana Early Gem Scanner</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1020;--card:#151d32;--line:#2b3652;--muted:#9eabc7;--text:#edf2ff;--green:#47d7a0;--yellow:#ffd166;--red:#ff7070}
@@ -51,28 +51,23 @@ h1{font-size:clamp(25px,4vw,38px);margin:8px 0}p{color:var(--muted);margin:6px 0
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px}.label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.value{font-size:23px;font-weight:700;margin-top:5px}
 .controls{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0}.controls input{background:#11182a;color:var(--text);border:1px solid var(--line);padding:10px;border-radius:9px;min-width:190px}
 .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:14px}table{width:100%;border-collapse:collapse;min-width:1250px;background:var(--card)}th,td{text-align:left;padding:12px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:12px;color:var(--muted);text-transform:uppercase}tr:last-child td{border-bottom:0}
-.symbol{font-weight:750}.sub{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.score{font-weight:800;font-size:17px}.good{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}a{color:#9bc4ff;text-decoration:none}a:hover{text-decoration:underline}.pill{display:inline-block;border-radius:7px;padding:3px 7px;font-size:12px;font-weight:700;background:#26334c}.foot{font-size:12px;color:var(--muted);margin:18px 2px}.empty{padding:25px;color:var(--muted);text-align:center}.risklist{margin:6px 0 0;padding-left:16px;font-size:12px;color:var(--muted)}.controls select{background:#11182a;color:var(--text);border:1px solid var(--line);padding:10px;border-radius:9px}.mini{font-size:12px;color:var(--muted)}.section-title{margin:22px 0 8px;font-size:18px}.best{border-color:#47d7a0;box-shadow:0 0 0 1px #47d7a033}
+.symbol{font-weight:750}.sub{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.score{font-weight:800;font-size:17px}.good{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}a{color:#9bc4ff;text-decoration:none}a:hover{text-decoration:underline}.pill{display:inline-block;border-radius:7px;padding:3px 7px;font-size:12px;font-weight:700;background:#26334c}.foot{font-size:12px;color:var(--muted);margin:18px 2px}.empty{padding:25px;color:var(--muted);text-align:center}.risklist{margin:6px 0 0;padding-left:16px;font-size:12px;color:var(--muted)}
 </style></head><body>
-<header><main style="padding:0 18px"><span class="tag">SOLANA · SCANNER DASHBOARD</span>
+<header><main style="padding:0 18px"><span class="tag">SOLANA · ALL-FEATURES MVP</span>
 <h1>Solana Early Gem Scanner</h1>
-<p>Rank new Solana pairs, review risk warnings, and filter candidates. Scores are heuristic signals—not guarantees or buy recommendations.</p></main></header>
+<p>Early-pair market screen, heuristic risk scoring, basic on-chain authority/concentration checks, whale concentration indicators, and optional Telegram alerts.</p></main></header>
 <main>
 <div class="grid">
 <div class="card"><div class="label">Scanner status</div><div class="value">{{ state.status }}</div><p>{{ state.message }}</p></div>
 <div class="card"><div class="label">Pairs passing filters</div><div class="value">{{ state.tokens|length }}</div><p>Current scan results</p></div>
 <div class="card"><div class="label">Last scan (UTC)</div><div class="value" style="font-size:17px">{{ state.last_scan or "Not yet" }}</div><p>Periodic refresh</p></div>
 <div class="card"><div class="label">Scan count</div><div class="value">{{ state.scan_count }}</div><p>Since this process started</p></div>
-<div class="card"><div class="label">Telegram alerts</div><div class="value">{{ "Enabled" if state.alerts_enabled else "Off" }}</div><p>{{ "Score threshold: " ~ alert_min_score ~ "/100" if state.alerts_enabled else "Not configured" }}</p></div>
-<div class="card"><div class="label">WATCH candidates</div><div class="value good">{{ state.tokens|selectattr('label','equalto','WATCH')|list|length }}</div><p>Meets current heuristic screen</p></div>
-<div class="card"><div class="label">CAUTION candidates</div><div class="value warn">{{ state.tokens|selectattr('label','equalto','CAUTION')|list|length }}</div><p>Review warnings carefully</p></div>
-<div class="card"><div class="label">AVOID candidates</div><div class="value bad">{{ state.tokens|selectattr('label','equalto','AVOID')|list|length }}</div><p>High caution under this model</p></div>
+<div class="card"><div class="label">Telegram alerts</div><div class="value">{{ "Enabled" if state.alerts_enabled else "Off" }}</div><p>{{ "Score threshold: " ~ alert_min_score ~ "/100" if state.alerts_enabled else "Add bot token and chat ID in Render environment variables to enable." }}</p></div>
 </div>
-<h2 class="section-title">Token results</h2>
-<div class="controls"><input id="filter" placeholder="Search token / symbol / address…" oninput="filterRows()">
-<select id="riskFilter" onchange="filterRows()"><option value="">All risk labels</option><option>WATCH</option><option>CAUTION</option><option>AVOID</option></select>
-<label class="tag">Min score <input id="minScore" type="number" min="0" max="100" value="0" style="width:65px;min-width:65px;background:#11182a;color:var(--text);border:0" oninput="filterRows()"></label>
-<label class="tag">Min liquidity $ <input id="minLiq" type="number" min="0" value="0" style="width:95px;min-width:95px;background:#11182a;color:var(--text);border:0" oninput="filterRows()"></label>
-<span class="tag">Scanner liquidity floor: ${{ "{:,.0f}".format(min_liquidity) }}</span><span class="tag">Max age: {{ max_age }} min</span><span class="tag">Security checks/scan: {{ security_limit }}</span><span class="tag">Alert score: {{ alert_min_score }}+</span><button type="button" onclick="resetFilters()" style="background:#26334c;color:var(--text);border:1px solid var(--line);padding:9px 12px;border-radius:9px">Reset filters</button></div><p class="mini" id="visibleCount">Showing all available rows.</p>
+<div class="controls"><input id="filter" placeholder="Filter by token / symbol…" oninput="filterRows()">
+<span class="tag">Min liquidity: ${{ "{:,.0f}".format(min_liquidity) }}</span>
+<span class="tag">Max age: {{ max_age }} min</span><span class="tag">Security checks/scan: {{ security_limit }}</span>
+<span class="tag">Telegram alert score: {{ alert_min_score }}+</span></div>
 <div class="tablewrap"><table id="tokens"><thead><tr>
 <th>Token</th><th>Age</th><th>Liquidity</th><th>5m volume</th><th>Buys / sells</th><th>5m change</th><th>Risk score</th><th>Market/risk screen</th><th>Authority checks</th><th>Whale / concentration</th><th>Links</th>
 </tr></thead><tbody>
@@ -81,7 +76,7 @@ h1{font-size:clamp(25px,4vw,38px);margin:8px 0}p{color:var(--muted);margin:6px 0
 <td>{{ "%.1f"|format(t.age_min) }} min</td><td>${{ "{:,.0f}".format(t.liquidity) }}</td>
 <td>${{ "{:,.0f}".format(t.vol5) }}</td><td>{{ t.buys5 }} / {{ t.sells5 }}</td>
 <td class="{{ 'good' if t.change5 > 0 else 'bad' if t.change5 < 0 else '' }}">{{ "%.2f"|format(t.change5) }}%</td>
-<td class="score {{ 'good' if t.score >= 70 else 'warn' if t.score >= 40 else 'bad' }}" data-score="{{ t.score }}" data-liquidity="{{ t.liquidity }}">{{ t.score }}/100</td>
+<td class="score">{{ t.score }}/100</td>
 <td><span class="pill {{ 'good' if t.label == 'WATCH' else 'warn' if t.label == 'CAUTION' else 'bad' }}">{{ t.label }}</span><ul class="risklist">{% for r in t.reasons %}<li>{{ r }}</li>{% endfor %}</ul></td>
 <td><span class="pill {{ 'good' if t.security.status == 'No obvious mint-authority warning' else 'warn' if t.security.status in ['Partial check','Unknown','Not checked'] else 'bad' }}">{{ t.security.status }}</span>
 <ul class="risklist">{% for r in t.security.warnings %}<li>{{ r }}</li>{% endfor %}</ul></td>
@@ -89,32 +84,13 @@ h1{font-size:clamp(25px,4vw,38px);margin:8px 0}p{color:var(--muted);margin:6px 0
 <td><a href="{{ t.dex_url }}" target="_blank" rel="noopener">DEX chart</a><br><a href="https://solscan.io/token/{{ t.address }}" target="_blank" rel="noopener">Solscan</a><br><a href="https://jup.ag/swap/SOL-{{ t.address }}" target="_blank" rel="noopener">Open swap</a></td>
 </tr>{% else %}<tr><td colspan="11" class="empty">No pairs currently meet your filters. Discovery data is limited; this does not mean no new coins exist.</td></tr>{% endfor %}
 </tbody></table></div>
-<div class="card" style="margin-top:16px"><b>How to use this dashboard</b><p>Start with higher scores, then check liquidity, token age, authority warnings, and top-10 account concentration. Use the filters to narrow the list; do not treat WATCH as a buy signal.</p></div>
 <div class="card" style="margin-top:16px"><b>Important risk limitations</b>
 <p><b>This is a screening tool, not an investment recommendation.</b> A high score does not mean a token is safe, genuine, sellable, or likely to rise. Scores use simple heuristics and can be manipulated by wash trading, bots, concentrated liquidity, and short-lived volume.</p>
 <p>On-chain checks cover basic mint/freeze authority indicators and top-10 token-account concentration. Token accounts are not necessarily unique owners; exchange/pool/burn addresses may distort concentration. This version does not prove sellability or fully check LP locks/burns, creator history, every Token-2022 extension, malicious contracts, or every honeypot/rug-pull method. RPC errors are marked unverified.</p>
 <p>Telegram alerts are informational and may be delayed or repeated after a restart. They never buy or sell. No wallet private key is requested or stored.</p></div>
 <div class="foot">Data: DEX Screener public API, Solana mainnet RPC, and optional Telegram Bot API. Data can be delayed, rate-limited, incomplete, or unavailable.</div>
 </main><script>
-function filterRows(){
- const q=document.getElementById('filter').value.toLowerCase();
- const risk=document.getElementById('riskFilter').value;
- const minScore=Number(document.getElementById('minScore').value||0);
- const minLiq=Number(document.getElementById('minLiq').value||0);
- let shown=0,total=0;
- document.querySelectorAll('#tokens tbody tr').forEach(r=>{
-  const scoreCell=r.querySelector('[data-score]');
-  if(!scoreCell){r.style.display='';return;}
-  total++;
-  const score=Number(scoreCell.dataset.score||0), liq=Number(scoreCell.dataset.liquidity||0);
-  const label=(r.querySelector('td:nth-child(8) .pill')||{}).innerText||'';
-  const ok=r.innerText.toLowerCase().includes(q)&&(!risk||label.trim()===risk)&&score>=minScore&&liq>=minLiq;
-  r.style.display=ok?'':'none'; if(ok)shown++;
- });
- document.getElementById('visibleCount').innerText=`Showing ${shown} of ${total} token rows.`;
-}
-function resetFilters(){document.getElementById('filter').value='';document.getElementById('riskFilter').value='';document.getElementById('minScore').value='0';document.getElementById('minLiq').value='0';filterRows();}
-document.addEventListener('DOMContentLoaded',filterRows);
+function filterRows(){let q=document.getElementById('filter').value.toLowerCase();document.querySelectorAll('#tokens tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none')}
 </script></body></html>"""
 
 def get_json(url):
@@ -281,4 +257,132 @@ def analyze_pair(pair):
     if m5vol >= 20000: score += 20
     elif m5vol >= 5000: score += 15
     elif m5vol >= 1000: score += 8
-    els
+    else: reasons.append("low 5m volume")
+    total_txns = buys + sells
+    if total_txns >= 100: score += 15
+    elif total_txns >= 40: score += 12
+    elif total_txns >= MIN_TXNS_5M: score += 7
+    else: reasons.append("low transaction count")
+    if buys > sells * 1.5 and buys >= 10: score += 10
+    elif buys > sells: score += 5
+    elif sells > buys: score -= 8; reasons.append("sell pressure")
+    if 0 < change5 <= 25: score += 10
+    elif change5 > 25: score += 3; reasons.append("sharp price spike / possible volatility")
+    elif change5 < -10: score -= 8; reasons.append("price falling")
+    # Simple heuristic risk flags; these are not contract audits.
+    if liquidity < MIN_LIQUIDITY_USD:
+        score = min(score, 39)
+    if m5vol > 0 and liquidity > 0 and m5vol > liquidity * 5:
+        score -= 10
+        reasons.append("very high 5m volume relative to liquidity; verify for wash trading/volatility")
+    if total_txns > 0 and buys > 0 and sells == 0:
+        score -= 3
+        reasons.append("no reported sells in 5m; data may be sparse or trading one-sided")
+    if not address:
+        score -= 20
+        reasons.append("missing token address")
+    score = max(0, min(100, score))
+    label = "WATCH" if score >= 70 and liquidity >= MIN_LIQUIDITY_USD and total_txns >= MIN_TXNS_5M else "CAUTION" if score >= 40 else "AVOID"
+    if not reasons: reasons = ["no heuristic market flags; this is not proof of safety"]
+    return {
+        "name":name,"symbol":symbol,"address":address,"age_min":age_min,
+        "liquidity":liquidity,"vol5":m5vol,"buys5":buys,"sells5":sells,
+        "change5":change5,"score":score,"label":label,"reasons":reasons,
+        "dex_url":pair.get("url") or f"https://dexscreener.com/solana/{pair.get('pairAddress','')}",
+        "pair_address":pair.get("pairAddress",""),
+        "security":{"status":"Not checked","warnings":["Not selected for on-chain checks this scan."],"top10_pct":None,"whale_notes":[]}
+    }
+
+def scan_once():
+    errors, candidates = [], {}
+    try:
+        profiles = get_json(f"{DEX_BASE}/token-profiles/latest/v1")
+        if not isinstance(profiles, list): profiles = []
+        sol_profiles = [p for p in profiles if (p.get("chainId") or "").lower()=="solana" and p.get("tokenAddress")]
+        for profile in sol_profiles[:MAX_PROFILES_PER_SCAN]:
+            address = profile.get("tokenAddress")
+            try:
+                pairs = get_json(f"{DEX_BASE}/token-pairs/v1/solana/{address}")
+                if not isinstance(pairs, list): continue
+                for pair in pairs:
+                    if (pair.get("chainId") or "").lower() != "solana" or not pair.get("pairCreatedAt"): continue
+                    token = ((pair.get("baseToken") or {}).get("address") or "")
+                    if not token or token.lower() in {
+                        "so11111111111111111111111111111111111111112",
+                        "epjfwdd5aufqssqem2qn1xzybapc8g4wegkzwytdt1v"}: continue
+                    item = analyze_pair(pair)
+                    if item["age_min"] <= MAX_PAIR_AGE_MINUTES and item["liquidity"] >= MIN_LIQUIDITY_USD:
+                        key = item["pair_address"] or item["address"]
+                        if key not in candidates or item["liquidity"] > candidates[key]["liquidity"]:
+                            candidates[key] = item
+                time.sleep(0.15)
+            except Exception as exc:
+                errors.append(f"{address[:8]}…: {type(exc).__name__}")
+                log.warning("Token lookup failed for %s: %s", address, exc)
+        ranked = sorted(candidates.values(), key=lambda x:(x["score"],x["vol5"],x["liquidity"]), reverse=True)
+        for item in ranked[:SECURITY_CHECK_LIMIT]:
+            item["security"] = onchain_security(item["address"])
+            security_text = " ".join(item["security"].get("warnings", [])).lower()
+            if "mint authority appears active" in security_text:
+                item["score"] = max(0, item["score"] - 12)
+                item["reasons"].append("active mint authority risk (-12)")
+            if "freeze authority appears active" in security_text:
+                item["score"] = max(0, item["score"] - 12)
+                item["reasons"].append("active freeze authority risk (-12)")
+            if item["security"].get("top10_pct") is not None:
+                pct = item["security"]["top10_pct"]
+                if pct >= 70:
+                    item["score"] = max(0, item["score"] - 20)
+                    item["reasons"].append("high top-10 account concentration (-20)")
+                elif pct >= 40:
+                    item["score"] = max(0, item["score"] - 10)
+                    item["reasons"].append("elevated top-10 account concentration (-10)")
+            if item["security"]["status"] == "Unknown":
+                item["score"] = max(0, item["score"] - 5)
+                item["reasons"].append("security not verified (-5)")
+            item["score"] = max(0, min(100, item["score"]))
+            item["label"] = "WATCH" if item["score"] >= 70 and item["liquidity"] >= MIN_LIQUIDITY_USD and (item["buys5"]+item["sells5"]) >= MIN_TXNS_5M else "CAUTION" if item["score"] >= 40 else "AVOID"
+            maybe_alert(item)
+            time.sleep(0.15)
+        ranked.sort(key=lambda x:(x["score"],x["vol5"],x["liquidity"]), reverse=True)
+        with _lock:
+            _state["tokens"] = ranked[:100]
+            _state["last_scan"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            _state["status"] = "Running"
+            _state["message"] = f"Checked {min(len(sol_profiles), MAX_PROFILES_PER_SCAN)} Solana profiles; {len(ranked)} pairs passed filters. Security/concentration checks run for up to {SECURITY_CHECK_LIMIT} candidates."
+            _state["scan_count"] += 1
+            _state["errors"] = errors[-10:]
+    except Exception as exc:
+        log.exception("Scan failed")
+        with _lock:
+            _state["status"] = "API error"
+            _state["message"] = f"Could not refresh market data ({type(exc).__name__}). Will retry automatically."
+            _state["errors"] = [str(exc)[:200]]
+
+def scanner_loop():
+    while True:
+        scan_once()
+        time.sleep(POLL_SECONDS)
+
+@app.route("/")
+def index():
+    with _lock:
+        snapshot = dict(_state)
+        snapshot["tokens"] = list(_state["tokens"])
+    return render_template_string(HTML, state=snapshot, min_liquidity=MIN_LIQUIDITY_USD,
+                                  max_age=MAX_PAIR_AGE_MINUTES, security_limit=SECURITY_CHECK_LIMIT,
+                                  alert_min_score=ALERT_MIN_SCORE)
+
+@app.route("/api/status")
+def api_status():
+    with _lock:
+        return jsonify(_state)
+
+@app.route("/health")
+def health():
+    return jsonify({"ok":True,"app":APP_NAME,"last_scan":_state["last_scan"]})
+
+if __name__ == "__main__":
+    threading.Thread(target=scanner_loop, daemon=True).start()
+    port = int(os.getenv("PORT","8080"))
+    app.run(host="0.0.0.0", port=port, debug=False)
