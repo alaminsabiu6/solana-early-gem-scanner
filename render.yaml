@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: solana-early-gem-scanner
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.2
+      - key: POLL_SECONDS
+        value: 60
+      - key: MAX_PROFILES_PER_SCAN
+        value: 10
+      - key: MIN_LIQUIDITY_USD
+        value: 5000
+      - key: MAX_PAIR_AGE_MINUTES
+        value: 60
+      - key: MIN_TXNS_5M
+        value: 10
