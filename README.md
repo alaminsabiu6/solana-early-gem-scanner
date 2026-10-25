@@ -1,53 +1,30 @@
-# Solana Early Gem Scanner (MVP)
+# Solana Early Gem Scanner — All-Features MVP
 
-A read-only Solana token-pair scanner with a browser dashboard. It does not trade, ask for a wallet connection, or store private keys.
+This version combines:
+- Early-pair market screening from DEX Screener's public API.
+- A heuristic 0–100 screening score with risk notes.
+- Basic Solana mint/freeze authority checks through RPC.
+- Top-10 token-account concentration indicator (a rough whale/concentration signal).
+- Optional Telegram alerts for qualifying WATCH-labelled candidates.
 
-## Features
-- Periodically reads DEX Screener's latest token profiles.
-- Looks up Solana pairs for a limited number of those profiles.
-- Filters by pair age and liquidity.
-- Ranks candidates using visible liquidity, pair age, 5-minute volume, transactions, buy/sell count and price change.
-- Displays DEX chart, Solscan and Jupiter swap links.
-- Dashboard refreshes automatically.
+## Deploy/update on Render
+1. Upload/replace these files in the root of your existing GitHub repository: `app.py`, `requirements.txt`, `render.yaml`, and `README.md`.
+2. Commit the changes.
+3. In Render, confirm the latest deploy is Live.
+
+## Optional Telegram alerts
+1. In Telegram, open the official BotFather account and create a bot. Keep its bot token private.
+2. Send a message to your new bot, or add it to a group/channel where it has permission to post.
+3. Find the chat ID using a trusted Telegram bot/API method. For a channel, add your bot as an administrator with permission to post.
+4. In Render Dashboard → your web service → Environment, add:
+   - `TELEGRAM_BOT_TOKEN` = your private bot token
+   - `TELEGRAM_CHAT_ID` = your chat/group/channel ID
+   - optionally `ALERT_MIN_SCORE` = `70`
+5. Save changes and redeploy. The dashboard should show Telegram alerts Enabled if both values are present.
+
+Never put your real bot token in GitHub, screenshots, or chat messages. If exposed, revoke it with BotFather and create a new one.
 
 ## Important limitations
-This is a useful starter MVP, not a complete launch detector. DEX Screener's latest token-profile endpoint is not a complete feed of every newly launched token. Unprofiled launches may be missed and detection may occur after the first trades. To detect launches within seconds across launchpads, integrate a dedicated real-time on-chain/indexing provider (some providers require API keys or paid plans).
+This is an experimental screening tool, not financial advice. Scores are heuristic and can be manipulated. The top-10 figure is based on token accounts, not deduplicated owners; liquidity pools, exchanges, and burn accounts may distort it. This version does not prove sellability or fully verify liquidity locks/burns, creator-wallet history, all Token-2022 extensions, malicious contracts, or all honeypot/rug-pull patterns. A WATCH label is not a buy signal. No wallet private key is needed; no automatic trading is implemented.
 
-The market score is a heuristic, not a probability of profit. This MVP does NOT check mint/freeze authority, holder concentration, honeypot/sell restrictions, liquidity lock/burn status or creator-wallet history. A WATCH label is not a buy recommendation. Do not use this alone to trade newly launched tokens.
-
-## Run locally
-Requires Python 3.10+.
-
-```bash
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-pip install -r requirements.txt
-python app.py
-```
-
-Then open http://127.0.0.1:8080.
-
-On Android, local execution is possible with a Python environment, but it will stop when the process/app is stopped and is not 24/7. For continuous operation, deploy to a host that supports Python web services.
-
-## Deploy on Render
-1. Create a GitHub account and a new repository.
-2. Upload `app.py`, `requirements.txt`, and `render.yaml` to the repository.
-3. Sign in to Render and create a new Web Service from that repository.
-4. The included `render.yaml` supplies a basic configuration; review the current plan limits and sleeping/usage behavior before deploying.
-5. After deployment, open the generated service URL from your phone.
-
-Free hosting policies can change and may sleep or have usage limits, so confirm the provider's current terms. If it sleeps, the scanner will not run continuously while asleep.
-
-## Environment variables
-- `POLL_SECONDS` (default 60; minimum 30)
-- `MAX_PROFILES_PER_SCAN` (default 10; capped at 15)
-- `MIN_LIQUIDITY_USD` (default 5000)
-- `MAX_PAIR_AGE_MINUTES` (default 60)
-- `MIN_TXNS_5M` (default 10)
-- `PORT` (set by many hosts automatically)
-
-## Data source
-DEX Screener public API documentation: https://docs.dexscreener.com/api/reference
+Data can be incomplete, delayed, rate-limited, or unavailable. Keep API usage reasonable and monitor Render logs.
