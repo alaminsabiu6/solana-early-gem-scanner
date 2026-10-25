@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timezone
 
 import requests
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string, request
 
 APP_NAME = "Solana Early Gem Scanner"
 POLL_SECONDS = max(60, int(os.getenv("POLL_SECONDS", "90")))
@@ -54,7 +54,7 @@ h1{font-size:clamp(25px,4vw,38px);margin:8px 0}p{color:var(--muted);margin:6px 0
 .symbol{font-weight:750}.sub{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.score{font-weight:800;font-size:17px}.good{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}a{color:#9bc4ff;text-decoration:none}a:hover{text-decoration:underline}.pill{display:inline-block;border-radius:7px;padding:3px 7px;font-size:12px;font-weight:700;background:#26334c}.foot{font-size:12px;color:var(--muted);margin:18px 2px}.empty{padding:25px;color:var(--muted);text-align:center}.risklist{margin:6px 0 0;padding-left:16px;font-size:12px;color:var(--muted)}.controls select{background:#11182a;color:var(--text);border:1px solid var(--line);padding:10px;border-radius:9px}.mini{font-size:12px;color:var(--muted)}.section-title{margin:22px 0 8px;font-size:18px}.best{border-color:#47d7a0;box-shadow:0 0 0 1px #47d7a033}
 </style></head><body>
 <header><main style="padding:0 18px"><span class="tag">SOLANA · SCANNER DASHBOARD</span>
-<h1>Solana Early Gem Scanner</h1>
+<h1>Solana Early Gem Scanner</h1><p><a class="tag" href="/technical">📈 Technical Analysis</a></p>
 <p>Rank new Solana pairs, review risk warnings, and filter candidates. Scores are heuristic signals—not guarantees or buy recommendations.</p></main></header>
 <main>
 <div class="grid">
@@ -396,6 +396,112 @@ def index():
     return render_template_string(HTML, state=snapshot, min_liquidity=MIN_LIQUIDITY_USD,
                                   max_age=MAX_PAIR_AGE_MINUTES, security_limit=SECURITY_CHECK_LIMIT,
                                   alert_min_score=ALERT_MIN_SCORE)
+
+
+# --- Technical analysis: historical OHLCV from GeckoTerminal public API ---
+def _ema(values, period):
+    if not values:
+        return []
+    alpha = 2.0 / (period + 1.0)
+    result = [float(values[0])]
+    for value in values[1:]:
+        result.append(float(value) * alpha + result[-1] * (1.0 - alpha))
+    return result
+
+def _rsi(closes, period=14):
+    out = [None] * len(closes)
+    if len(closes) <= period:
+        return out
+    gains = [max(closes[i] - closes[i-1], 0.0) for i in range(1, len(closes))]
+    losses = [max(closes[i-1] - closes[i], 0.0) for i in range(1, len(closes))]
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    out[period] = 100.0 if avg_loss == 0 else 100.0 - 100.0/(1.0+avg_gain/avg_loss)
+    for i in range(period+1, len(closes)):
+        avg_gain = (avg_gain*(period-1)+gains[i-1])/period
+        avg_loss = (avg_loss*(period-1)+losses[i-1])/period
+        out[i] = 100.0 if avg_loss == 0 else 100.0 - 100.0/(1.0+avg_gain/avg_loss)
+    return out
+
+def _indicators(candles):
+    closes=[c['close'] for c in candles]
+    e20=_ema(closes,20); e50=_ema(closes,50)
+    e12=_ema(closes,12); e26=_ema(closes,26)
+    macd=[a-b for a,b in zip(e12,e26)]
+    signal=_ema(macd,9)
+    rsi=_rsi(closes,14)
+    for i,c in enumerate(candles):
+        c['ema20']=e20[i]; c['ema50']=e50[i]
+        c['macd']=macd[i]; c['macd_signal']=signal[i]; c['macd_hist']=macd[i]-signal[i]
+        c['rsi']=rsi[i]
+    lows=[c['low'] for c in candles[-50:]]; highs=[c['high'] for c in candles[-50:]]
+    return {'rsi':rsi[-1] if rsi else None,'macd':macd[-1] if macd else None,
+            'macd_signal':signal[-1] if signal else None,'ema20':e20[-1] if e20 else None,
+            'ema50':e50[-1] if e50 else None,'support':min(lows) if lows else None,
+            'resistance':max(highs) if highs else None}
+
+TECHNICAL_HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Technical Analysis · Solana Gem Scanner</title><script src="https://unpkg.com/lightweight-charts@4.2.2/dist/lightweight-charts.standalone.production.js"></script><style>
+:root{color-scheme:dark;--bg:#0b1020;--card:#151d32;--line:#2b3652;--muted:#9eabc7;--text:#edf2ff;--green:#47d7a0;--yellow:#ffd166;--red:#ff7070}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,sans-serif}header{padding:22px;background:linear-gradient(120deg,#16244a,#123b43)}main{max-width:1200px;margin:auto;padding:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;margin:12px 0}.row{display:flex;flex-wrap:wrap;gap:9px;align-items:center}.tag,button{border:1px solid #3b547c;border-radius:9px;padding:9px 12px;background:#202b45;color:var(--text);text-decoration:none}input,select{padding:11px;background:#11182a;color:var(--text);border:1px solid var(--line);border-radius:9px;min-width:180px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.label{color:var(--muted);font-size:12px}.value{font-size:20px;font-weight:700;overflow-wrap:anywhere}.muted{color:var(--muted)}#priceChart{height:360px}#indicatorChart{height:240px}.good{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}a{color:#9bc4ff}.hidden{display:none}.small{font-size:12px}</style></head><body><header><main style="padding:0"><span class="tag">SOLANA · TECHNICAL ANALYSIS</span><h1>Technical Analysis</h1><p class="muted">Historical candles, RSI, MACD, moving averages and approximate support/resistance.</p><a class="tag" href="/">← Back to Scanner</a></main></header><main>
+<div class="card"><form id="searchForm" class="row"><input id="token" placeholder="Solana token mint address" value="{{ token }}" required><select id="tf"><option value="minute:15">15 minutes</option><option value="hour:1" selected>1 hour</option><option value="hour:4">4 hours</option><option value="day:1">1 day</option></select><button type="submit">Analyze token</button><button type="button" id="simpleBtn">Simple view</button><button type="button" id="advancedBtn">Advanced view</button></form><p class="muted small">Paste a token's Solana contract address. Data availability depends on the pool and GeckoTerminal's public API. Symbol/name search is not supported in this first version to avoid selecting the wrong token.</p><p id="status" class="muted">Enter a token mint address and press Analyze.</p></div>
+<div id="metrics" class="grid"></div><div class="card"><h2>Price chart</h2><div id="priceChart"></div></div><div class="card" id="advanced"><h2>RSI / MACD</h2><div id="indicatorChart"></div></div><div class="card"><h2>Interpretation guide</h2><p class="muted">RSI above 70 is often called overbought and below 30 oversold; neither predicts a reversal. MACD compares exponential moving averages. EMA20/EMA50 show smoothed trend. Support/resistance here are simple lowest-low/highest-high levels across the recent available candles, not guaranteed barriers.</p><p class="muted">This is informational analysis, not financial advice. Thin liquidity, new tokens, manipulated trading and incomplete data can make indicators unreliable. Never treat a signal as a guarantee.</p></div>
+</main><script>
+let priceChart=null, candleSeries=null, ema20Series=null, ema50Series=null, volSeries=null, indChart=null, rsiSeries=null, macdSeries=null, signalSeries=null, mode='advanced';
+function setupCharts(){const L=window.LightweightCharts;if(!L){document.getElementById('status').textContent='Chart library did not load. Check your connection and reload.';return false;} const common={layout:{background:{color:'#151d32'},textColor:'#edf2ff'},grid:{vertLines:{color:'#26324a'},horzLines:{color:'#26324a'}},timeScale:{timeVisible:true,secondsVisible:false},rightPriceScale:{borderColor:'#2b3652'}};priceChart=L.createChart(document.getElementById('priceChart'),{...common,width:document.getElementById('priceChart').clientWidth,height:360});candleSeries=priceChart.addCandlestickSeries();ema20Series=priceChart.addLineSeries({lineWidth:2});ema50Series=priceChart.addLineSeries({lineWidth:2});volSeries=priceChart.addHistogramSeries({priceScaleId:'volume',priceFormat:{type:'volume'},scaleMargins:{top:0.8,bottom:0}});indChart=L.createChart(document.getElementById('indicatorChart'),{...common,width:document.getElementById('indicatorChart').clientWidth,height:240});rsiSeries=indChart.addLineSeries({priceScaleId:'rsi',lineWidth:2});macdSeries=indChart.addLineSeries({priceScaleId:'macd',lineWidth:2});signalSeries=indChart.addLineSeries({priceScaleId:'macd',lineWidth:2});return true;}
+function fmt(v){return v===null||v===undefined?'Not enough data':Number(v).toPrecision(6)}
+function renderMetrics(m){const items=[['RSI (14)',m.rsi===null?'Not enough candles':Number(m.rsi).toFixed(2)],['MACD',fmt(m.macd)],['MACD signal',fmt(m.macd_signal)],['EMA 20',fmt(m.ema20)],['EMA 50',fmt(m.ema50)],['Approx. support',fmt(m.support)],['Approx. resistance',fmt(m.resistance)]];document.getElementById('metrics').innerHTML=items.map(x=>`<div class="card"><div class="label">${x[0]}</div><div class="value">${x[1]}</div></div>`).join('');}
+async function analyze(){const token=document.getElementById('token').value.trim();const tf=document.getElementById('tf').value.split(':');if(!token)return;document.getElementById('status').textContent='Loading historical candles…';try{const url=`/api/technical?token=${encodeURIComponent(token)}&timeframe=${tf[0]}&aggregate=${tf[1]}`;const r=await fetch(url);const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not load data');renderMetrics(data.indicators);if(!priceChart&&!setupCharts())return;const candles=data.candles.map(c=>({time:c.time,open:c.open,high:c.high,low:c.low,close:c.close}));candleSeries.setData(candles);ema20Series.setData(data.candles.map(c=>({time:c.time,value:c.ema20})));ema50Series.setData(data.candles.map(c=>({time:c.time,value:c.ema50})));volSeries.setData(data.candles.map(c=>({time:c.time,value:c.volume,color:c.close>=c.open?'#47d7a088':'#ff707088'})));rsiSeries.setData(data.candles.filter(c=>c.rsi!==null).map(c=>({time:c.time,value:c.rsi})));macdSeries.setData(data.candles.map(c=>({time:c.time,value:c.macd})));signalSeries.setData(data.candles.map(c=>({time:c.time,value:c.macd_signal})));priceChart.timeScale().fitContent();indChart.timeScale().fitContent();document.getElementById('status').textContent=`Loaded ${data.candles.length} candles · Pool: ${data.pool} · Source: GeckoTerminal`;document.getElementById('advanced').classList.toggle('hidden',mode==='simple');}catch(e){document.getElementById('status').textContent='Analysis unavailable: '+e.message+'. Try another token or timeframe; no indicator values were invented.'}}
+document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault();analyze()});document.getElementById('simpleBtn').onclick=()=>{mode='simple';document.getElementById('advanced').classList.add('hidden');if(priceChart)priceChart.applyOptions({height:360});};document.getElementById('advancedBtn').onclick=()=>{mode='advanced';document.getElementById('advanced').classList.remove('hidden');if(indChart)indChart.applyOptions({width:document.getElementById('indicatorChart').clientWidth});};window.addEventListener('resize',()=>{if(priceChart)priceChart.applyOptions({width:document.getElementById('priceChart').clientWidth});if(indChart)indChart.applyOptions({width:document.getElementById('indicatorChart').clientWidth});});if(document.getElementById('token').value)analyze();
+</script></body></html>'''
+
+@app.route("/technical")
+def technical_page():
+    token = request.args.get("token", "").strip()
+    return render_template_string(TECHNICAL_HTML, token=token)
+
+@app.route("/api/technical")
+def api_technical():
+    mint = request.args.get("token", "").strip()
+    timeframe = request.args.get("timeframe", "hour")
+    aggregate = request.args.get("aggregate", "1")
+    if not mint or len(mint) < 32 or len(mint) > 50:
+        return jsonify({"error": "Enter a valid-looking Solana mint address (32–50 characters)."}), 400
+    if timeframe not in ("minute", "hour", "day") or aggregate not in ("1", "4", "15"):
+        return jsonify({"error": "Unsupported timeframe."}), 400
+    if timeframe == "minute" and aggregate not in ("1", "15"):
+        return jsonify({"error": "Unsupported minute interval."}), 400
+    headers = {"accept": "application/json", "user-agent": "SolanaGemScanner/1.0"}
+    try:
+        pool_resp = requests.get(f"https://api.geckoterminal.com/api/v2/networks/solana/tokens/{mint}/pools?page=1", headers=headers, timeout=REQUEST_TIMEOUT)
+        pool_resp.raise_for_status()
+        pools = pool_resp.json().get("data", [])
+        if not pools:
+            return jsonify({"error": "No indexed Solana pool was found for this token."}), 404
+        def liquidity(item):
+            try: return float(item.get("attributes", {}).get("reserve_in_usd") or 0)
+            except (TypeError, ValueError): return 0.0
+        pool = max(pools, key=liquidity)
+        pool_address = pool.get("attributes", {}).get("address")
+        if not pool_address:
+            return jsonify({"error": "The data provider did not return a pool address."}), 502
+        endpoint = f"https://api.geckoterminal.com/api/v2/networks/solana/pools/{pool_address}/ohlcv/{timeframe}"
+        candle_resp = requests.get(endpoint, params={"aggregate": aggregate, "limit": 200, "currency": "usd", "token": "base"}, headers=headers, timeout=REQUEST_TIMEOUT)
+        candle_resp.raise_for_status()
+        raw = candle_resp.json().get("data", {}).get("attributes", {}).get("ohlcv_list", [])
+        candles=[]
+        for row in sorted(raw, key=lambda x: x[0]):
+            if not isinstance(row, list) or len(row) < 6: continue
+            candles.append({"time": int(row[0]), "open": float(row[1]), "high": float(row[2]), "low": float(row[3]), "close": float(row[4]), "volume": float(row[5])})
+        if len(candles) < 2:
+            return jsonify({"error": "The provider returned too few historical candles for analysis."}), 422
+        metrics = _indicators(candles)
+        return jsonify({"token": mint, "pool": pool_address, "candles": candles, "indicators": metrics, "source": "GeckoTerminal", "count": len(candles)})
+    except requests.RequestException as exc:
+        log.warning("Technical analysis data request failed: %s", exc)
+        return jsonify({"error": "Historical market data provider is unavailable or rate-limited. Please try again later."}), 502
+    except (ValueError, TypeError, KeyError) as exc:
+        log.warning("Technical analysis response parsing failed: %s", exc)
+        return jsonify({"error": "Historical data was incomplete or could not be parsed."}), 502
+
 
 @app.route("/api/status")
 def api_status():
