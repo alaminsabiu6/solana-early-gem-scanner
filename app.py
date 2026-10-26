@@ -37,6 +37,7 @@ _state = {
     "scan_count": 0, "errors": [], "alerts_enabled": bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
 }
 
+HTML = r"""<!doctype html>
 <html lang="en"><head>
 <link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#0b1020">
